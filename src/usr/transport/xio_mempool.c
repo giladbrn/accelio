@@ -606,7 +606,7 @@ int xio_mempool_alloc(struct xio_mempool *p, size_t length,
 	index = size2index(p, length);
 retry:
 	if (index == -1) {
-		err = EINVAL;
+		err = err ? err : EINVAL;
 		ret = -1;
 		reg_mem->addr	= NULL;
 		reg_mem->mr	= NULL;
@@ -636,12 +636,16 @@ retry:
 				if (++index == (int)p->slabs_nr ||
 				    test_bits(
 					XIO_MEMPOOL_FLAG_USE_SMALLEST_SLAB,
-					&p->flags))
+					&p->flags)) {
+					DEBUG_LOG("no more slabs to look for after index:%d\n", index);
 					index  = -1;
+					err = ENOMEM;
+				}
 
 				if (p->safe_mt)
 					spin_unlock(&slab->lock);
 				ret = 0;
+				DEBUG_LOG("retry with next slab index :%d\n", index);
 				goto retry;
 			}
 			DEBUG_LOG("resizing slab size:%zd\n", slab->mb_size);
